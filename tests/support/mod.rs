@@ -79,13 +79,13 @@ impl Harness {
 
         let settings = HashMap::from([
             ("PUBLIC_BASE_URL", base_url.clone()),
-            ("GITHUB_APP_ID", "12345".to_string()),
-            ("GITHUB_APP_SLUG", "personal-todos".to_string()),
-            ("GITHUB_APP_CLIENT_ID", "Iv1.test".to_string()),
-            ("GITHUB_APP_CLIENT_SECRET", "test-secret".to_string()),
-            ("GITHUB_APP_PRIVATE_KEY_PATH", "unused".to_string()),
-            ("GITHUB_API_URL", github.uri()),
-            ("GITHUB_WEB_URL", github.uri()),
+            ("GH_APP_ID", "12345".to_string()),
+            ("GH_APP_SLUG", "personal-todos".to_string()),
+            ("GH_APP_CLIENT_ID", "Iv1.test".to_string()),
+            ("GH_APP_CLIENT_SECRET", "test-secret".to_string()),
+            ("GH_APP_PRIVATE_KEY_PATH", "unused".to_string()),
+            ("GH_API_URL", github.uri()),
+            ("GH_WEB_URL", github.uri()),
             ("TOKEN_KEYS", B64.encode([7u8; 32])),
         ]);
         let mut cfg = Config::from_lookup(&|k| settings.get(k).cloned()).unwrap();

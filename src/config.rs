@@ -70,22 +70,19 @@ impl Config {
             port,
             public_base_url,
             allowed_hosts: host,
-            github_app_id: require("GITHUB_APP_ID", "numeric GitHub App id")?,
-            github_app_slug: require("GITHUB_APP_SLUG", "the App's URL name")?,
-            github_client_id: require("GITHUB_APP_CLIENT_ID", "the App's OAuth client id")?,
-            github_client_secret: require(
-                "GITHUB_APP_CLIENT_SECRET",
-                "the App's OAuth client secret",
-            )?,
+            github_app_id: require("GH_APP_ID", "numeric GitHub App id")?,
+            github_app_slug: require("GH_APP_SLUG", "the App's URL name")?,
+            github_client_id: require("GH_APP_CLIENT_ID", "the App's OAuth client id")?,
+            github_client_secret: require("GH_APP_CLIENT_SECRET", "the App's OAuth client secret")?,
             github_private_key_path: require(
-                "GITHUB_APP_PRIVATE_KEY_PATH",
+                "GH_APP_PRIVATE_KEY_PATH",
                 "path to the App's private key .pem",
             )?,
-            github_api_url: get("GITHUB_API_URL")
+            github_api_url: get("GH_API_URL")
                 .unwrap_or_else(|| DEFAULT_GITHUB_API_URL.into())
                 .trim_end_matches('/')
                 .to_string(),
-            github_web_url: get("GITHUB_WEB_URL")
+            github_web_url: get("GH_WEB_URL")
                 .unwrap_or_else(|| DEFAULT_GITHUB_WEB_URL.into())
                 .trim_end_matches('/')
                 .to_string(),
@@ -112,11 +109,11 @@ mod tests {
 
     const BASE: &[(&str, &str)] = &[
         ("PUBLIC_BASE_URL", "https://todo.example.com/"),
-        ("GITHUB_APP_ID", "12345"),
-        ("GITHUB_APP_SLUG", "personal-todos"),
-        ("GITHUB_APP_CLIENT_ID", "Iv1.abc"),
-        ("GITHUB_APP_CLIENT_SECRET", "secret"),
-        ("GITHUB_APP_PRIVATE_KEY_PATH", "/k.pem"),
+        ("GH_APP_ID", "12345"),
+        ("GH_APP_SLUG", "personal-todos"),
+        ("GH_APP_CLIENT_ID", "Iv1.abc"),
+        ("GH_APP_CLIENT_SECRET", "secret"),
+        ("GH_APP_PRIVATE_KEY_PATH", "/k.pem"),
         ("TOKEN_KEYS", "new, old"),
     ];
 
@@ -150,9 +147,9 @@ mod tests {
         let pairs: Vec<_> = BASE
             .iter()
             .copied()
-            .filter(|(k, _)| *k != "GITHUB_APP_SLUG")
+            .filter(|(k, _)| *k != "GH_APP_SLUG")
             .collect();
-        assert!(config(&pairs).err().unwrap().contains("GITHUB_APP_SLUG"));
+        assert!(config(&pairs).err().unwrap().contains("GH_APP_SLUG"));
     }
 
     #[test]
