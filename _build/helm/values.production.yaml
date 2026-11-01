@@ -1,0 +1,10 @@
+publicBaseUrl: https://personal-todo-mcp.mrcrgl.de
+
+githubApp:
+  id: "5563981"
+  slug: todo-connector-mcp
+  clientId: Iv23livRVy6US7hk5lrD
+
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod

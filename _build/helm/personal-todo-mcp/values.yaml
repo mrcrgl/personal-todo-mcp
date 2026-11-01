@@ -1,0 +1,38 @@
+image:
+  repository: ghcr.io/mrcrgl/personal-todo-mcp
+  # Set at deploy time, e.g. sha-1a2b3c4.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# The server keeps no state, so replicas need no sticky sessions.
+replicaCount: 2
+
+# Public origin. Also the host of the Ingress.
+publicBaseUrl: ""
+
+githubApp:
+  id: ""
+  slug: ""
+  clientId: ""
+
+# Existing Secret with the keys TOKEN_KEYS, GH_APP_CLIENT_SECRET, and
+# github-app.pem. Created outside the chart so no secret passes through Helm.
+existingSecret: personal-todo-mcp
+
+rustLog: info
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  tlsSecretName: personal-todo-mcp-tls
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

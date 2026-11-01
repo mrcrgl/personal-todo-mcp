@@ -112,6 +112,25 @@ The server needs TLS in front of it, and the proxy must forward the original
 `Host` header. `GET /healthz` is the probe endpoint. It keeps no state, so run as
 many replicas as you like without sticky sessions.
 
+On Kubernetes, use the chart in `_build/helm/personal-todo-mcp`. Images are
+published to `ghcr.io/mrcrgl/personal-todo-mcp` as `sha-<commit>`. The chart
+reads its secrets from an existing Secret, so they never pass through Helm:
+
+```bash
+kubectl create namespace personal-todo-mcp
+read -rs CLIENT_SECRET
+kubectl -n personal-todo-mcp create secret generic personal-todo-mcp \
+  --from-literal=TOKEN_KEYS="$(openssl rand 32 | basenc --base64url --wrap=0 | tr -d =)" \
+  --from-literal=GH_APP_CLIENT_SECRET="$CLIENT_SECRET" \
+  --from-file=github-app.pem=app.pem
+
+helm upgrade --install --atomic --wait -n personal-todo-mcp \
+  -f my-values.yaml --set image.tag=sha-1a2b3c4 \
+  personal-todo-mcp _build/helm/personal-todo-mcp
+```
+
+See `_build/helm/values.production.yaml` for an example of the values to set.
+
 ## Security model
 
 - **Tenancy.** The tenant comes only from a validated access token and is
