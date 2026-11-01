@@ -80,12 +80,12 @@ secret and a private key.
 |---|---|---|
 | `PUBLIC_BASE_URL` | yes | Public origin, e.g. `https://todo.example.com`. Must be `https` outside localhost |
 | `TOKEN_KEYS` | yes | Comma-separated token keys, newest first |
-| `GITHUB_APP_ID` | yes | Numeric App ID |
-| `GITHUB_APP_SLUG` | yes | The App's URL name |
-| `GITHUB_APP_CLIENT_ID` | yes | OAuth client ID |
-| `GITHUB_APP_CLIENT_SECRET` | yes | OAuth client secret |
-| `GITHUB_APP_PRIVATE_KEY_PATH` | yes | Path to the private key `.pem` |
-| `GITHUB_API_URL` / `GITHUB_WEB_URL` | no | Default to github.com |
+| `GH_APP_ID` | yes | Numeric App ID |
+| `GH_APP_SLUG` | yes | The App's URL name |
+| `GH_APP_CLIENT_ID` | yes | OAuth client ID |
+| `GH_APP_CLIENT_SECRET` | yes | OAuth client secret |
+| `GH_APP_PRIVATE_KEY_PATH` | yes | Path to the private key `.pem` |
+| `GH_API_URL` / `GH_WEB_URL` | no | Default to github.com |
 | `PORT` / `RUST_LOG` | no | `10080` / `info` |
 
 Generate a token key:
@@ -105,7 +105,7 @@ under it have to register again.
 docker build -f _build/Dockerfile -t personal-todo-mcp .
 docker run -p 10080:10080 --env-file .env \
   -v "$PWD/app.pem:/keys/app.pem:ro" \
-  -e GITHUB_APP_PRIVATE_KEY_PATH=/keys/app.pem personal-todo-mcp
+  -e GH_APP_PRIVATE_KEY_PATH=/keys/app.pem personal-todo-mcp
 ```
 
 The server needs TLS in front of it, and the proxy must forward the original
