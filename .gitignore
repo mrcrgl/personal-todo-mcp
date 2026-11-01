@@ -1,0 +1,22 @@
+# BEGIN repokit profile: base
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env / tooling
+.env
+.env.*
+# END repokit profile: base
+
+# BEGIN repokit profile: rust
+# Rust / Cargo
+/target/
+/**/*.rs.bk
+# END repokit profile: rust
+
+# GitHub App private keys
+*.pem
+!tests/fixtures/test-rsa.pem
