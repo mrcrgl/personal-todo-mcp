@@ -3,3 +3,4 @@ name: personal-todo-mcp
 description: Multi-tenant MCP server for personal todos stored as GitHub Issues
 type: application
 version: 0.1.0
+appVersion: "0.1.0"
