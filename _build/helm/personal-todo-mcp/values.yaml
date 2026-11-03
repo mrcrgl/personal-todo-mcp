@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/mrcrgl/personal-todo-mcp
-  # Set at deploy time, e.g. sha-1a2b3c4.
+  # Set at deploy time, e.g. 0.1.0. See "Image tags" in the README.
   tag: ""
   pullPolicy: IfNotPresent
 
