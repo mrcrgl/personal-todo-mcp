@@ -7,13 +7,29 @@ so they keep working without this service, and you can leave at any time.
 The server stores nothing. There is no database, and todo content only passes
 through on its way to your repository.
 
+> **Quickstart**
+>
+> 1. [Create a private repository](https://github.com/new) for your todos.
+> 2. Add `https://personal-todo-mcp.mrcrgl.de/mcp` to Claude, Cursor, or any
+>    other MCP client.
+> 3. Sign in with GitHub and install the App on that repository when asked. Done.
+
+<!-- Demo: add docs/demo.gif (Claude creating a todo, next to the issue on GitHub) here. -->
+
 ## Connect
 
-1. [Create a private repository](https://github.com/new) for your todos.
-2. Add the server URL (`https://<host>/mcp`) to your MCP client.
-3. Follow the browser flow: confirm the client, sign in with GitHub, and install
-   the GitHub App on your todo repository. If it is already installed, that step
-   is skipped.
+The hosted instance runs at `https://personal-todo-mcp.mrcrgl.de/mcp`. If you
+[host your own](#self-hosting), use `https://<your-host>/mcp` instead.
+
+| Client | How to add the server |
+|---|---|
+| Claude (web, desktop) | *Settings → Connectors → Add custom connector*, then paste the URL |
+| Claude Code | `claude mcp add --transport http todos https://personal-todo-mcp.mrcrgl.de/mcp` |
+| Cursor | Add `{"mcpServers": {"todos": {"url": "https://personal-todo-mcp.mrcrgl.de/mcp"}}}` to `~/.cursor/mcp.json` |
+
+The first time your client connects, a browser flow opens: confirm the client,
+sign in with GitHub, and install the GitHub App on your todo repository. If the
+App is already installed, that step is skipped.
 
 Your client registers itself, so there is nothing to copy or configure.
 
