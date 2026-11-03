@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use axum::{
     Form, Json, Router,
-    extract::{DefaultBodyLimit, Query, State, rejection::JsonRejection},
+    extract::{DefaultBodyLimit, FromRef, Query, State, rejection::JsonRejection},
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header},
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -16,7 +16,7 @@ use crate::oauth::dto::{
     AuthorizeParams, ConsentForm, GitHubCallbackParams, OAuthErrorBody, RegistrationRequest,
     TokenRequest,
 };
-use crate::oauth::pages;
+use crate::oauth::pages::Pages;
 use crate::oauth::service::{
     AuthorizeError, FLOW_TTL, FlowError, FlowOutcome, OAuthService, RegistrationError, TokenError,
 };
@@ -29,7 +29,26 @@ const MAX_BODY_BYTES: usize = 16 * 1024;
 const PAGE_CSP: &str = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const MCP_SESSION_HEADER: HeaderName = HeaderName::from_static("mcp-session-id");
 
-pub fn router(oauth: Arc<OAuthService>) -> Router {
+/// State of the browser-facing handlers, which render pages.
+#[derive(Clone)]
+struct BrowserState {
+    oauth: Arc<OAuthService>,
+    pages: Arc<Pages>,
+}
+
+impl FromRef<BrowserState> for Arc<OAuthService> {
+    fn from_ref(state: &BrowserState) -> Self {
+        state.oauth.clone()
+    }
+}
+
+impl FromRef<BrowserState> for Arc<Pages> {
+    fn from_ref(state: &BrowserState) -> Self {
+        state.pages.clone()
+    }
+}
+
+pub fn router(oauth: Arc<OAuthService>, pages: Arc<Pages>) -> Router {
     let api = Router::new()
         .route(
             "/.well-known/oauth-protected-resource",
@@ -45,16 +64,17 @@ pub fn router(oauth: Arc<OAuthService>) -> Router {
         )
         .route("/register", post(register))
         .route("/token", post(token))
-        .layer(cors());
+        .layer(cors())
+        .with_state(oauth.clone());
     let browser = Router::new()
         .route("/authorize", get(authorize))
         .route("/authorize/consent", post(consent))
         .route("/oauth/github/callback", get(github_callback))
-        .route("/oauth/github/setup", get(github_setup));
+        .route("/oauth/github/setup", get(github_setup))
+        .with_state(BrowserState { oauth, pages });
 
     api.merge(browser)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
-        .with_state(oauth)
 }
 
 /// For the bearer-authenticated endpoints only: they use no cookies, so any
@@ -125,12 +145,13 @@ async fn token(
 
 async fn authorize(
     State(oauth): State<Arc<OAuthService>>,
+    State(pages): State<Arc<Pages>>,
     headers: HeaderMap,
     Query(params): Query<AuthorizeParams>,
 ) -> Response {
     match oauth.begin_authorization(&params, cookie(&headers, FLOW_COOKIE)) {
         Ok(view) => {
-            let page = pages::consent(
+            let page = pages.consent(
                 view.client_name.as_deref(),
                 &view.target,
                 &view.consent_token,
@@ -141,7 +162,7 @@ async fn authorize(
             )
         }
         Err(AuthorizeError::Page(message)) => {
-            html(StatusCode::BAD_REQUEST, pages::problem(&message))
+            html(StatusCode::BAD_REQUEST, pages.problem(&message))
         }
         Err(AuthorizeError::Redirect(url)) => Redirect::to(&url).into_response(),
     }
@@ -149,18 +170,20 @@ async fn authorize(
 
 async fn consent(
     State(oauth): State<Arc<OAuthService>>,
+    State(pages): State<Arc<Pages>>,
     headers: HeaderMap,
     Form(form): Form<ConsentForm>,
 ) -> Response {
     let allow = form.decision == "allow";
     match oauth.decide_consent(&form.consent, cookie(&headers, FLOW_COOKIE), allow) {
         Ok(url) => Redirect::to(&url).into_response(),
-        Err(error) => flow_problem(error),
+        Err(error) => flow_problem(&pages, error),
     }
 }
 
 async fn github_callback(
     State(oauth): State<Arc<OAuthService>>,
+    State(pages): State<Arc<Pages>>,
     headers: HeaderMap,
     Query(params): Query<GitHubCallbackParams>,
 ) -> Response {
@@ -168,24 +191,28 @@ async fn github_callback(
         .github_callback(params, cookie(&headers, FLOW_COOKIE))
         .await
     {
-        Ok(outcome) => flow_response(outcome),
-        Err(error) => flow_problem(error),
+        Ok(outcome) => flow_response(&pages, outcome),
+        Err(error) => flow_problem(&pages, error),
     }
 }
 
 /// Also reached by people who install the App from its GitHub page without
 /// coming from a client; those have no flow to resume.
-async fn github_setup(State(oauth): State<Arc<OAuthService>>, headers: HeaderMap) -> Response {
+async fn github_setup(
+    State(oauth): State<Arc<OAuthService>>,
+    State(pages): State<Arc<Pages>>,
+    headers: HeaderMap,
+) -> Response {
     let Some(install_state) = cookie(&headers, INSTALL_COOKIE) else {
-        return html(StatusCode::OK, pages::installed());
+        return html(StatusCode::OK, pages.installed());
     };
     match oauth.installation_setup(install_state).await {
-        Ok(outcome) => flow_response(outcome),
-        Err(error) => flow_problem(error),
+        Ok(outcome) => flow_response(&pages, outcome),
+        Err(error) => flow_problem(&pages, error),
     }
 }
 
-fn flow_response(outcome: FlowOutcome) -> Response {
+fn flow_response(pages: &Pages, outcome: FlowOutcome) -> Response {
     match outcome {
         FlowOutcome::Complete { redirect } => with_cookies(
             Redirect::to(&redirect).into_response(),
@@ -206,22 +233,22 @@ fn flow_response(outcome: FlowOutcome) -> Response {
         } => with_cookies(
             html(
                 StatusCode::OK,
-                pages::blocked(&message, &action_url, action_label, &retry_url),
+                pages.blocked(&message, &action_url, action_label, &retry_url),
             ),
             &[set_cookie(INSTALL_COOKIE, &install_state, FLOW_TTL)],
         ),
     }
 }
 
-fn flow_problem(error: FlowError) -> Response {
+fn flow_problem(pages: &Pages, error: FlowError) -> Response {
     let status = match error {
         FlowError::Rejected(_) => StatusCode::BAD_REQUEST,
         FlowError::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
     };
-    html(status, pages::problem(&error.to_string()))
+    html(status, pages.problem(&error.to_string()))
 }
 
-fn html(status: StatusCode, body: String) -> Response {
+pub fn html(status: StatusCode, body: String) -> Response {
     (
         status,
         [

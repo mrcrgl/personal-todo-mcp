@@ -85,6 +85,7 @@ secret and a private key.
 | `GH_APP_CLIENT_ID` | yes | OAuth client ID |
 | `GH_APP_CLIENT_SECRET` | yes | OAuth client secret |
 | `GH_APP_PRIVATE_KEY_PATH` | yes | Path to the private key `.pem` |
+| `LEGAL_NOTICE_URL` / `PRIVACY_POLICY_URL` | no | Your legal notice and privacy policy, linked from every page. Absolute `https` URLs |
 | `GH_API_URL` / `GH_WEB_URL` | no | Default to github.com |
 | `PORT` / `RUST_LOG` | no | `10080` / `info` |
 
