@@ -109,7 +109,9 @@ docker run -p 10080:10080 --env-file .env \
 ```
 
 The server needs TLS in front of it, and the proxy must forward the original
-`Host` header. `GET /healthz` is the probe endpoint. It keeps no state, so run as
+`Host` header. Make sure the proxy does not log query strings: during sign-in
+they carry authorization codes and sealed state. The server logs each request's
+path itself. `GET /healthz` is the probe endpoint. It keeps no state, so run as
 many replicas as you like without sticky sessions.
 
 On Kubernetes, use the chart in `_build/helm/personal-todo-mcp`. Images are
