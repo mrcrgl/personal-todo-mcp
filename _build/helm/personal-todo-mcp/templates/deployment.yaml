@@ -58,6 +58,14 @@ spec:
               value: /keys/github-app.pem
             - name: RUST_LOG
               value: {{ .Values.rustLog | quote }}
+            {{- with .Values.legal.noticeUrl }}
+            - name: LEGAL_NOTICE_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.legal.privacyPolicyUrl }}
+            - name: PRIVACY_POLICY_URL
+              value: {{ . | quote }}
+            {{- end }}
             - name: TOKEN_KEYS
               valueFrom:
                 secretKeyRef:

@@ -23,6 +23,8 @@ pub const TEST_KEY_PEM: &str = include_str!("../fixtures/test-rsa.pem");
 pub const CLIENT_REDIRECT: &str = "https://client.example/callback";
 pub const PUBLIC_HOST: &str = "todo.example.test";
 pub const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+pub const LEGAL_NOTICE_URL: &str = "https://operator.example/imprint";
+pub const PRIVACY_POLICY_URL: &str = "https://operator.example/privacy";
 
 /// One person as GitHub sees them.
 #[derive(Clone)]
@@ -87,6 +89,8 @@ impl Harness {
             ("GH_API_URL", github.uri()),
             ("GH_WEB_URL", github.uri()),
             ("TOKEN_KEYS", B64.encode([7u8; 32])),
+            ("LEGAL_NOTICE_URL", LEGAL_NOTICE_URL.to_string()),
+            ("PRIVACY_POLICY_URL", PRIVACY_POLICY_URL.to_string()),
         ]);
         let mut cfg = Config::from_lookup(&|k| settings.get(k).cloned()).unwrap();
         // Stands in for a public hostname, which `PUBLIC_BASE_URL` can't be

@@ -23,6 +23,12 @@ existingSecret: personal-todo-mcp
 
 rustLog: info
 
+# Operator's legal notice (Impressum) and privacy policy, linked from every
+# page. Absolute https URLs; leave empty to show no links.
+legal:
+  noticeUrl: ""
+  privacyPolicyUrl: ""
+
 ingress:
   enabled: true
   className: nginx
