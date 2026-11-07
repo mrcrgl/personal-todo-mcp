@@ -59,6 +59,7 @@ pub struct RepositoryRow {
     pub full_name: String,
     pub private: bool,
     pub html_url: String,
+    pub default_branch: String,
     pub owner: RepositoryOwnerRow,
 }
 
@@ -97,4 +98,46 @@ pub struct OAuthTokenRow {
     pub error: Option<String>,
     #[serde(default)]
     pub error_description: Option<String>,
+}
+
+/// A contents entry. Only `type == "file"` carries `content`, base64 encoded,
+/// and only up to 1 MB.
+#[derive(Deserialize)]
+pub struct ContentRow {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub sha: String,
+    pub size: u64,
+    #[serde(default)]
+    pub encoding: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+/// Response to creating or updating a file.
+#[derive(Deserialize)]
+pub struct ContentWriteRow {
+    pub content: ContentRefRow,
+}
+
+#[derive(Deserialize)]
+pub struct ContentRefRow {
+    pub sha: String,
+}
+
+/// A recursive Git tree.
+#[derive(Deserialize)]
+pub struct TreeRow {
+    #[serde(default)]
+    pub truncated: bool,
+    pub tree: Vec<TreeEntryRow>,
+}
+
+#[derive(Deserialize)]
+pub struct TreeEntryRow {
+    pub path: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    #[serde(default)]
+    pub size: Option<u64>,
 }

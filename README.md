@@ -1,11 +1,12 @@
 # personal-todo-mcp
 
 An open-source, multi-tenant [MCP](https://modelcontextprotocol.io) server for
-personal todos. Your todos are GitHub Issues in a private repository you own,
-so they keep working without this service, and you can leave at any time.
+personal todos and notes. Your todos are GitHub Issues in a private repository
+you own, and your notes are Markdown files in the same repository. Both keep
+working without this service, and you can leave at any time.
 
-The server stores nothing. There is no database, and todo content only passes
-through on its way to your repository.
+The server stores nothing. There is no database, and todo and file content only
+passes through on its way to your repository.
 
 ## Connect
 
@@ -36,6 +37,11 @@ To disconnect, uninstall the App in your
 | `todo_comment` | Add a comment |
 | `labels_list`, `label_delete` | Show or remove lists and tags |
 | `todo_repository` | Show where the todos are stored |
+| `file_list` | List Markdown files, optionally in one folder |
+| `file_read` | Read a file as numbered lines, in windows of 400 by default |
+| `file_edit` | Change a file by exact string replacement |
+| `file_write` | Create a file, or replace a whole one given its `sha` |
+| `file_delete` | Delete a file given its `sha` |
 
 No tool takes an owner or repository. Both follow from your access token.
 
@@ -54,6 +60,25 @@ No tool takes an owner or repository. Both follow from your access token.
 You can edit todos in the GitHub UI too. Issues created through the server are
 authored by the App's bot account, not by you.
 
+## How files map to GitHub
+
+Files live in the `files/` folder of your todo repository, on its default
+branch. Tool paths are relative to that folder: `projects/house.md` is
+`files/projects/house.md` in the repository. Every change is one commit by the
+App's bot account, so the repository's history is the file history.
+
+- Only Markdown (`.md`) files, UTF-8, up to 512 KB each.
+- Paths must be relative. `..`, segments starting with a dot (such as
+  `.github`), backslashes, and control characters are refused.
+- `file_read` returns each file's `sha`. `file_write` needs it to replace a
+  file, and `file_delete` needs it to delete one. A file changed in the
+  meantime is never overwritten. `file_edit` re-reads and retries once by
+  itself, because its replacements either still match or fail.
+
+File tools need the App's **Contents** permission. If you installed the App
+before files existed, GitHub asks you to approve the new permission. Until you
+do, the file tools say so and the todo tools keep working.
+
 ## Self-hosting
 
 ### 1. Register a GitHub App
@@ -68,11 +93,15 @@ Under *Settings → Developer settings → GitHub Apps → New GitHub App*:
 | Setup URL | `https://<host>/oauth/github/setup` |
 | Redirect on update | **On** |
 | Webhook | Inactive |
-| Repository permissions | **Issues: Read and write**, **Metadata: Read-only** |
+| Repository permissions | **Contents: Read and write**, **Issues: Read and write**, **Metadata: Read-only** |
 | Where can this GitHub App be installed? | **Any account** |
 
 Then note the App ID, client ID, and the URL name (slug). Generate a client
 secret and a private key.
+
+Adding a permission to an existing App asks every installation to approve it.
+Add Contents before you deploy a version with file tools. Installations that
+have not yet approved it keep working for todos.
 
 ### 2. Configure
 
@@ -135,7 +164,12 @@ See `_build/helm/values.production.yaml` for an example of the values to set.
 
 - **Tenancy.** The tenant comes only from a validated access token and is
   required by every storage call. GitHub then enforces it again: each tenant
-  uses its own installation token, limited to Issues and Metadata.
+  uses its own installation tokens. Todo tools get one limited to Issues and
+  Metadata, file tools one limited to Contents and Metadata.
+- **Files.** Paths are checked before any request is made, so a path cannot
+  leave `files/` or reach `.github/`. Writing workflow files would need the
+  separate Workflows permission, which the App does not have. Logs never
+  contain file content or paths.
 - **Tokens.** Client ids, codes, and tokens are encrypted with XChaCha20-Poly1305
   and bound to their purpose, so one kind cannot stand in for another. Access
   tokens last one hour and are bound to this server's `/mcp` resource.

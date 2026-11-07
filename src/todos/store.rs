@@ -19,6 +19,11 @@ pub enum StoreError {
     InstallationGone,
     #[error("{0}")]
     Repository(RepositoryProblem),
+    #[error(
+        "the GitHub App lacks a permission this tool needs: approve its updated permissions \
+         in your GitHub settings under Applications → Installed GitHub Apps, then try again"
+    )]
+    PermissionNotGranted,
     #[error("GitHub rate limit reached: try again later")]
     RateLimited,
     /// GitHub refused the request; `message` is GitHub's own and safe to show.

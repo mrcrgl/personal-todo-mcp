@@ -15,6 +15,8 @@ use tower_http::trace::TraceLayer;
 use tracing::info_span;
 
 use crate::config::Config;
+use crate::files::service::FileService;
+use crate::github::file_store::GitHubFileStore;
 use crate::github::identity::GitHubIdentity;
 use crate::github::installation::InstallationAccessProvider;
 use crate::github::store::GitHubTodoStore;
@@ -27,6 +29,7 @@ use crate::todos::service::TodoService;
 pub struct Services {
     pub oauth: Arc<OAuthService>,
     pub todos: Arc<TodoService>,
+    pub files: Arc<FileService>,
 }
 
 /// Wires the GitHub adapters into the services.
@@ -46,6 +49,10 @@ pub fn build_services(cfg: &Config, private_key_pem: &str) -> Result<Services, S
     ));
     let store = Arc::new(GitHubTodoStore::new(
         cfg.github_api_url.clone(),
+        installations.clone(),
+    ));
+    let file_store = Arc::new(GitHubFileStore::new(
+        cfg.github_api_url.clone(),
         installations,
     ));
     let oauth = Arc::new(OAuthService::new(
@@ -57,17 +64,22 @@ pub fn build_services(cfg: &Config, private_key_pem: &str) -> Result<Services, S
     Ok(Services {
         oauth,
         todos: Arc::new(TodoService::new(store)),
+        files: Arc::new(FileService::new(file_store)),
     })
 }
 
 /// The whole HTTP surface. `shutdown` drains in-flight MCP streams.
 pub fn router(cfg: &Config, services: Services, shutdown: CancellationToken) -> Router {
-    let Services { oauth, todos } = services;
+    let Services {
+        oauth,
+        todos,
+        files,
+    } = services;
 
     // No sessions: the token is checked on every request, and any replica can
     // serve any request.
     let mcp_service = StreamableHttpService::new(
-        move || Ok(TodoMcp::new(todos.clone())),
+        move || Ok(TodoMcp::new(todos.clone(), files.clone())),
         NeverSessionManager::default().into(),
         {
             // with_allowed_hosts replaces the default list, so keep the
