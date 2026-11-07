@@ -48,3 +48,15 @@ Format:
 - **Decision:** The server shows its own consent page, bound to the browser by a `__Host-` cookie, before redirecting to GitHub.
 - **Why:** Registration is open, and GitHub does not ask again once a user has authorized the App. Without this, any registered client could obtain a user's access by sending them a link.
 - **Consequences:** Users see one more step. This step must not be skipped or remembered per client, since nothing is stored.
+
+## 2026-11-07: Markdown files live in the todo repository, under `files/`
+
+- **Decision:** Notes are Markdown files in the user's todo repository, below `files/` on the default branch. Paths are validated in the domain (`FilePath`, `FolderPath`) and are relative to `files/`. Edits are exact string replacements. Every write names the version it expects (`sha`, or absent for a create).
+- **Why:** The repository is already the user's private, per-tenant store, so files add no server-side state. A fixed root and a domain path type make "stay inside the folder" a property of the type. String replacement fails loudly where line or diff edits would apply to the wrong place, and versioned writes turn concurrent changes into conflicts instead of lost updates.
+- **Consequences:** The App needs Contents: Read and write, and existing installations must approve it. Only UTF-8 Markdown up to 512 KB is supported. Files outside `files/` are out of reach by design.
+
+## 2026-11-07: One installation token scope per port
+
+- **Decision:** `InstallationAccessProvider` mints and caches tokens per (installation, `Scope`). `TodoStore` and sign-in use `Issues` (issues + metadata), and `FileStore` uses `Contents` (contents + metadata).
+- **Why:** A leaked token can do only what its tools need. A permission one port needs, and an installation has not approved yet, must not break the other port.
+- **Consequences:** Separate token mints and cache entries per scope. A new port that needs other permissions adds a `Scope` and must not widen an existing one.

@@ -5,22 +5,23 @@ This is the *only* place for repo‑specific rules; everything else should remai
 ---
 
 ## Overview
-- **Purpose:** Public, multi-tenant MCP server that manages personal todos as GitHub Issues in a private repository each user owns.
+- **Purpose:** Public, multi-tenant MCP server that manages personal todos as GitHub Issues, and Markdown notes as files, in a private repository each user owns.
 - **Primary constraints:** Strict tenant isolation. No server-side state. Onboarding needs nothing but the server URL.
-- **Explicit non‑goals:** Storing todo content, team or organization use, webhooks, reminders, a web UI beyond the authorization pages.
+- **Explicit non‑goals:** Storing todo or file content on the server, binary files, team or organization use, webhooks, reminders, a web UI beyond the authorization pages.
 
 ## Architecture summary
 - **High‑level modules/layers:**
   - `domain`: todo model and invariants. Pure.
   - `todos`: use cases (`TodoService`) and the `TodoStore` port.
+  - `files`: use cases (`FileService`) and the `FileStore` port.
   - `oauth`: stateless authorization server and the `IdentityProvider` port.
   - `mcp`: tool schemas and mapping.
-  - `github`: adapter implementing both ports.
+  - `github`: adapter implementing the ports.
   - `app`: composition root.
-- **Dependency direction:** `mcp`, `oauth` → `todos` → `domain`; `github` → ports.
+- **Dependency direction:** `mcp`, `oauth` → `todos`, `files` → `domain`; `github` → ports. `todos` and `files` do not depend on each other.
 - **Forbidden dependencies:**
   - `domain` must not depend on anything else in this crate, on HTTP, or on GitHub.
-  - `todos` and `oauth` must not depend on `github`. Only `app` wires it in.
+  - `todos`, `files`, and `oauth` must not depend on `github`. Only `app` wires it in.
   - `mcp` tools must not call GitHub or read tokens.
 
 ## Technology stack
@@ -31,13 +32,13 @@ This is the *only* place for repo‑specific rules; everything else should remai
 
 ## Model boundaries & mapping
 - **Domain models live in:** `src/domain/`
-- **API DTOs live in:** `src/mcp/dto.rs`, `src/oauth/dto.rs`
+- **API DTOs live in:** `src/mcp/dto.rs`, `src/mcp/file_dto.rs`, `src/oauth/dto.rs`
 - **Persistence models live in:** `src/github/models.rs`
-- **Mapping code lives in:** `src/github/mapping.rs`, `src/mcp/dto.rs`
+- **Mapping code lives in:** `src/github/mapping.rs`, `src/github/file_mapping.rs`, `src/mcp/dto.rs`, `src/mcp/file_dto.rs`
 - **Mapping tests live in:** next to the mapping code
 
 ## Error handling conventions
-- **Error types:** `thiserror` enums per boundary: `StoreError`, `IdentityError`, `TokenError`, `FlowError`.
+- **Error types:** `thiserror` enums per boundary: `StoreError`, `FileStoreError`, `FileError`, `IdentityError`, `TokenError`, `FlowError`.
 - **User‑facing error mapping:** Tool failures are tool results (`isError`), so the model can act on the message. Protocol errors are for server faults.
 
 ## Testing & quality gates
@@ -49,7 +50,9 @@ This is the *only* place for repo‑specific rules; everything else should remai
 ## Security & compliance
 - **Secrets management:** Environment and mounted files only. `Config` and anything holding a token must not implement `Debug`.
 - **Tenant source:** A `Tenant` is built only from a validated token. Tool arguments never name an owner or repository.
-- **Logging:** Never log tokens, codes, sealed values, query strings, or todo content.
+- **Logging:** Never log tokens, codes, sealed values, query strings, todo content, file content, or file paths. File tool failures are logged by `kind()` only.
+- **File paths:** Only `FilePath`/`FolderPath` may reach the adapter. They are the control that keeps requests inside `files/`.
+- **Token scopes:** Each port mints its own installation token (`Scope`) with only the permissions it needs.
 - **New sealed values:** Add a `Purpose`. Never reuse one across meanings.
 - **PII:** Only GitHub user id and login, inside sealed tokens and logs.
 
