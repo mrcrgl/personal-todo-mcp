@@ -4,8 +4,9 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::domain::file::{Expected, FileListing, FilePath, FileText, FolderPath, StoredFile};
+use crate::domain::file::{FileListing, FilePath, FileText, FolderPath, StoredFile};
 use crate::domain::tenant::{RepositoryProblem, Tenant};
+use crate::domain::version::Expected;
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T, FileStoreError>> + Send + 'a>>;
 
