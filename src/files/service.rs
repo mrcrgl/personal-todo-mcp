@@ -3,10 +3,11 @@
 use std::sync::Arc;
 
 use crate::domain::file::{
-    Edit, EditError, Expected, FileListing, FilePath, FileText, FolderPath, LineWindow,
-    apply_edits, changed_lines, check_edits,
+    Edit, EditError, FileListing, FilePath, FileText, FolderPath, LineWindow, apply_edits,
+    changed_lines, check_edits,
 };
 use crate::domain::tenant::Tenant;
+use crate::domain::version::Expected;
 use crate::files::store::{FileStore, FileStoreError};
 
 /// How often an edit is tried when the file changes underneath it. One retry

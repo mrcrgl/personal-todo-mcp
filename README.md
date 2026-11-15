@@ -1,12 +1,13 @@
 # personal-todo-mcp
 
 An open-source, multi-tenant [MCP](https://modelcontextprotocol.io) server for
-personal todos and notes. Your todos are GitHub Issues in a private repository
-you own, and your notes are Markdown files in the same repository. Both keep
-working without this service, and you can leave at any time.
+personal todos, notes, and lists. Your todos are GitHub Issues in a private
+repository you own. Your notes are Markdown files, and your lists are tables
+with a schema, in the same repository. All of it keeps working without this
+service, and you can leave at any time.
 
-The server stores nothing. There is no database, and todo and file content only
-passes through on its way to your repository.
+The server stores nothing. There is no database, and todo, file, and table
+content only passes through on its way to your repository.
 
 ## Connect
 
@@ -42,6 +43,13 @@ To disconnect, uninstall the App in your
 | `file_edit` | Change a file by exact string replacement |
 | `file_write` | Create a file, or replace a whole one given its `sha` |
 | `file_delete` | Delete a file given its `sha` |
+| `table_list` | List tables |
+| `table_create` | Create a table with typed columns |
+| `table_describe` | Show a table's columns, row count, and `sha` |
+| `table_alter` | Add or remove columns |
+| `table_drop` | Delete a table given its `sha` |
+| `table_query` | Read rows, filtered, sorted, and paged |
+| `table_insert`, `table_update`, `table_delete` | Change up to 500 rows per call, or every row matching a filter |
 
 No tool takes an owner or repository. Both follow from your access token.
 
@@ -75,9 +83,37 @@ App's bot account, so the repository's history is the file history.
   meantime is never overwritten. `file_edit` re-reads and retries once by
   itself, because its replacements either still match or fail.
 
-File tools need the App's **Contents** permission. If you installed the App
-before files existed, GitHub asks you to approve the new permission. Until you
-do, the file tools say so and the todo tools keep working.
+## How tables map to GitHub
+
+A table is one file, `tables/<name>.jsonl`, on the default branch. Line 1 holds
+the schema, every other line one row:
+
+```jsonl
+{"version":1,"description":"What I read","next_id":3,"columns":[{"name":"title","type":"string","required":true},{"name":"status","type":"enum","values":["unread","read"]},{"name":"finished","type":"date"}]}
+{"id":1,"title":"Dune","status":"read","finished":"2026-01-02"}
+{"id":2,"title":"Emma"}
+```
+
+- Names use `a-z`, `0-9`, `_`, and `-` (columns: no `-`). `id` is reserved and
+  assigned by the server.
+- Column types: `string`, `integer`, `number`, `boolean`, `date`
+  (`YYYY-MM-DD`), `datetime` (RFC 3339), `enum` (with its values), and `list`
+  (of strings). A column can be `required`.
+- Every write is checked against the schema, and each call is one commit, so
+  an import of 500 rows costs one request. A call applies completely or not at
+  all.
+- Row changes re-read the table and retry once if someone else wrote it in the
+  meantime. `table_drop` needs the `sha`.
+- Filters: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `contains`, `in`, `is_null`,
+  `not_null`, all of which must hold. `ne` also matches rows without a value.
+- A table is at most 512 KB, a few thousand rows. Every query reads the whole
+  table, so tables suit personal lists, not large data sets.
+- You can edit the file on GitHub. If a line no longer fits the schema, the
+  tools report that line number until it is fixed.
+
+File and table tools need the App's **Contents** permission. If you installed
+the App before files existed, GitHub asks you to approve the new permission.
+Until you do, the file and table tools say so and the todo tools keep working.
 
 ## Self-hosting
 
@@ -165,11 +201,14 @@ See `_build/helm/values.production.yaml` for an example of the values to set.
 - **Tenancy.** The tenant comes only from a validated access token and is
   required by every storage call. GitHub then enforces it again: each tenant
   uses its own installation tokens. Todo tools get one limited to Issues and
-  Metadata, file tools one limited to Contents and Metadata.
+  Metadata, file and table tools one limited to Contents and Metadata.
 - **Files.** Paths are checked before any request is made, so a path cannot
   leave `files/` or reach `.github/`. Writing workflow files would need the
   separate Workflows permission, which the App does not have. Logs never
   contain file content or paths.
+- **Tables.** Table names are checked before any request is made, so a table
+  is always a single file directly in `tables/`. Logs never contain table
+  names or content.
 - **Tokens.** Client ids, codes, and tokens are encrypted with XChaCha20-Poly1305
   and bound to their purpose, so one kind cannot stand in for another. Access
   tokens last one hour and are bound to this server's `/mcp` resource.

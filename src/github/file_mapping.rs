@@ -1,13 +1,11 @@
 //! Repository contents ↔ files. The files directory is a storage detail, so
 //! its name appears here and nowhere else.
 
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD as B64;
-
 use crate::domain::file::{
     FileEntry, FileListing, FilePath, FileText, FolderPath, MAX_FILE_BYTES, StoredFile,
 };
 use crate::files::store::FileStoreError;
+use crate::github::contents;
 use crate::github::models::{ContentRow, TreeRow};
 use crate::todos::store::StoreError;
 
@@ -55,21 +53,8 @@ pub fn file_from_content(path: &FilePath, row: ContentRow) -> Result<StoredFile,
     if row.size > MAX_FILE_BYTES as u64 {
         return Err(FileStoreError::TooLarge);
     }
-    if row.encoding.as_deref() != Some("base64") {
-        return Err(FileStoreError::Unavailable(
-            "GitHub returned the file in an unexpected encoding".into(),
-        ));
-    }
-    // GitHub wraps the base64 at 60 characters.
-    let encoded: String = row
-        .content
-        .unwrap_or_default()
-        .chars()
-        .filter(|c| !c.is_ascii_whitespace())
-        .collect();
-    let bytes = B64
-        .decode(encoded)
-        .map_err(|_| FileStoreError::Unavailable("GitHub returned unreadable content".into()))?;
+    let bytes = contents::decoded_bytes(&row)
+        .ok_or_else(|| FileStoreError::Unavailable("GitHub returned unreadable content".into()))?;
     let text = String::from_utf8(bytes).map_err(|_| FileStoreError::NotText)?;
     Ok(StoredFile {
         path: path.clone(),
@@ -79,7 +64,7 @@ pub fn file_from_content(path: &FilePath, row: ContentRow) -> Result<StoredFile,
 }
 
 pub fn encode_text(text: &FileText) -> String {
-    B64.encode(text.as_str())
+    contents::encoded(text.as_str().as_bytes())
 }
 
 /// The failures every file operation shares. Status codes whose meaning

@@ -171,14 +171,6 @@ pub struct FileListing {
     pub truncated: bool,
 }
 
-/// What a write expects to find, so a stale write fails instead of
-/// overwriting someone else's change.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expected {
-    Absent,
-    Version(String),
-}
-
 /// A numbered line of a file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Line {

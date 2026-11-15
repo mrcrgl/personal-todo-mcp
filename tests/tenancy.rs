@@ -138,6 +138,15 @@ async fn tools_are_discoverable_and_never_ask_for_a_repository() {
         "file_edit",
         "file_write",
         "file_delete",
+        "table_list",
+        "table_create",
+        "table_describe",
+        "table_alter",
+        "table_drop",
+        "table_query",
+        "table_insert",
+        "table_update",
+        "table_delete",
     ] {
         assert!(names.contains(&expected), "missing {expected}");
     }

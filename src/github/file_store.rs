@@ -6,8 +6,9 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use crate::domain::file::{Expected, FileListing, FilePath, FileText, FolderPath, StoredFile};
+use crate::domain::file::{FileListing, FilePath, FileText, FolderPath, StoredFile};
 use crate::domain::tenant::Tenant;
+use crate::domain::version::Expected;
 use crate::files::store::{BoxFut, FileStore, FileStoreError};
 use crate::github::api::GitHubApi;
 use crate::github::file_mapping::{self, file_error};

@@ -2,7 +2,7 @@
 //! domain types.
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct IssueRow {
@@ -140,4 +140,27 @@ pub struct TreeEntryRow {
     pub kind: String,
     #[serde(default)]
     pub size: Option<u64>,
+}
+
+/// Line 1 of a stored table. Every further line is one row object.
+#[derive(Serialize, Deserialize)]
+pub struct TableHeaderRow {
+    pub version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub next_id: u64,
+    pub columns: Vec<ColumnRow>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ColumnRow {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
