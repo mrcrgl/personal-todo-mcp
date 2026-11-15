@@ -21,6 +21,10 @@ pub struct Config {
     pub github_web_url: String,
     /// Base64url-encoded 32-byte keys. The first seals; all of them open.
     pub token_keys: Vec<String>,
+    /// The operator's legal notice (Impressum), linked from every page.
+    pub legal_notice_url: Option<String>,
+    /// The operator's privacy policy, linked from every page.
+    pub privacy_policy_url: Option<String>,
 }
 
 impl Config {
@@ -87,8 +91,25 @@ impl Config {
                 .trim_end_matches('/')
                 .to_string(),
             token_keys,
+            legal_notice_url: optional_https_url("LEGAL_NOTICE_URL", get("LEGAL_NOTICE_URL"))?,
+            privacy_policy_url: optional_https_url(
+                "PRIVACY_POLICY_URL",
+                get("PRIVACY_POLICY_URL"),
+            )?,
         })
     }
+}
+
+/// An absolute `https` URL, or nothing when unset or empty.
+fn optional_https_url(name: &str, value: Option<String>) -> Result<Option<String>, String> {
+    let Some(value) = value.filter(|v| !v.is_empty()) else {
+        return Ok(None);
+    };
+    let url = Url::parse(&value).map_err(|e| format!("{name} is not a URL: {e}"))?;
+    if url.scheme() != "https" {
+        return Err(format!("{name} must be an https URL"));
+    }
+    Ok(Some(url.to_string()))
 }
 
 fn normalize_base_url(value: &str) -> Result<String, String> {
@@ -158,6 +179,42 @@ mod tests {
         let local = config(&with("PUBLIC_BASE_URL", "http://localhost:10080")).unwrap();
         assert_eq!(local.public_base_url, "http://localhost:10080");
         assert_eq!(local.allowed_hosts, ["localhost", "localhost:10080"]);
+    }
+
+    #[test]
+    fn legal_links_are_optional() {
+        let cfg = config(BASE).unwrap();
+        assert_eq!(cfg.legal_notice_url, None);
+        assert_eq!(cfg.privacy_policy_url, None);
+        let empty = config(&with("LEGAL_NOTICE_URL", "")).unwrap();
+        assert_eq!(empty.legal_notice_url, None);
+    }
+
+    #[test]
+    fn legal_links_are_read() {
+        let mut pairs = with("LEGAL_NOTICE_URL", "https://example.com/imprint");
+        pairs.push(("PRIVACY_POLICY_URL", "https://example.com/privacy"));
+        let cfg = config(&pairs).unwrap();
+        assert_eq!(
+            cfg.legal_notice_url.as_deref(),
+            Some("https://example.com/imprint")
+        );
+        assert_eq!(
+            cfg.privacy_policy_url.as_deref(),
+            Some("https://example.com/privacy")
+        );
+    }
+
+    #[test]
+    fn legal_links_must_be_absolute_https_urls() {
+        for (key, value) in [
+            ("LEGAL_NOTICE_URL", "http://example.com/imprint"),
+            ("LEGAL_NOTICE_URL", "/imprint"),
+            ("PRIVACY_POLICY_URL", "javascript:alert(1)"),
+        ] {
+            let error = config(&with(key, value)).err().unwrap();
+            assert!(error.contains(key), "{error}");
+        }
     }
 
     #[test]
