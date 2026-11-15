@@ -11,7 +11,7 @@ use crate::domain::todo::{
     TodoRepository,
 };
 use crate::github::api::GitHubApi;
-use crate::github::installation::{InstallationAccess, InstallationAccessProvider};
+use crate::github::installation::{InstallationAccess, InstallationAccessProvider, Scope};
 use crate::github::mapping;
 use crate::github::models::{CommentRow, IssueRow, LabelRow};
 use crate::todos::store::{BoxFut, StoreError, TodoStore};
@@ -45,7 +45,10 @@ impl GitHubTodoStore {
         F: FnOnce(Arc<InstallationAccess>) -> Fut,
         Fut: Future<Output = Result<T, StoreError>> + 'a,
     {
-        let access = self.installations.access(tenant.installation_id).await?;
+        let access = self
+            .installations
+            .access(tenant.installation_id, Scope::Issues)
+            .await?;
         let result = operation(access).await;
         if matches!(result, Err(StoreError::InstallationGone)) {
             self.installations.invalidate(tenant.installation_id).await;

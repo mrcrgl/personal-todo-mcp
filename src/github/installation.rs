@@ -27,6 +27,27 @@ struct AppClaims {
     iss: String,
 }
 
+/// The permissions a token is minted with. Each port gets its own, so a leaked
+/// todo token cannot touch files and a file token cannot touch issues. It also
+/// keeps todo tools working for installations that have not yet approved a
+/// permission only the file tools need.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Scope {
+    Issues,
+    Contents,
+}
+
+impl Scope {
+    const ALL: [Self; 2] = [Self::Issues, Self::Contents];
+
+    fn permissions(self) -> serde_json::Value {
+        match self {
+            Self::Issues => json!({"issues": "write", "metadata": "read"}),
+            Self::Contents => json!({"contents": "write", "metadata": "read"}),
+        }
+    }
+}
+
 /// What a tenant's requests run with. Holds a live token, hence no `Debug`.
 pub struct InstallationAccess {
     pub token: String,
@@ -39,7 +60,7 @@ pub struct InstallationAccessProvider {
     http: reqwest::Client,
     app_id: String,
     key: jsonwebtoken::EncodingKey,
-    cache: Cache<u64, Arc<InstallationAccess>>,
+    cache: Cache<(u64, Scope), Arc<InstallationAccess>>,
 }
 
 impl InstallationAccessProvider {
@@ -59,24 +80,32 @@ impl InstallationAccessProvider {
         })
     }
 
-    /// Cached per installation; concurrent misses share one refill.
+    /// Cached per installation and scope; concurrent misses share one refill.
+    /// Failures are not cached, so an approved permission works right away.
     pub async fn access(
         &self,
         installation_id: u64,
+        scope: Scope,
     ) -> Result<Arc<InstallationAccess>, StoreError> {
         self.cache
-            .try_get_with(installation_id, self.fetch(installation_id))
+            .try_get_with((installation_id, scope), self.fetch(installation_id, scope))
             .await
             .map_err(|shared: Arc<StoreError>| clone_error(&shared))
     }
 
-    /// Drops a cached entry GitHub has just refused.
+    /// Drops the cached entries of an installation GitHub has just refused.
     pub async fn invalidate(&self, installation_id: u64) {
-        self.cache.invalidate(&installation_id).await;
+        for scope in Scope::ALL {
+            self.cache.invalidate(&(installation_id, scope)).await;
+        }
     }
 
-    async fn fetch(&self, installation_id: u64) -> Result<Arc<InstallationAccess>, StoreError> {
-        let token = self.mint_token(installation_id).await?;
+    async fn fetch(
+        &self,
+        installation_id: u64,
+        scope: Scope,
+    ) -> Result<Arc<InstallationAccess>, StoreError> {
+        let token = self.mint_token(installation_id, scope).await?;
         let listed: InstallationRepositoriesRow = self
             .api
             .get(
@@ -89,23 +118,27 @@ impl InstallationAccessProvider {
         Ok(Arc::new(InstallationAccess { token, repository }))
     }
 
-    async fn mint_token(&self, installation_id: u64) -> Result<String, StoreError> {
+    async fn mint_token(&self, installation_id: u64, scope: Scope) -> Result<String, StoreError> {
         let jwt = build_app_jwt(&self.app_id, &self.key, unix_now())?;
         let url = format!(
             "{}/app/installations/{installation_id}/access_tokens",
             self.api_url
         );
         // Asks for less than the App may hold: a leaked token can do no more
-        // than what the todo tools need.
+        // than what the calling tools need.
         let response = decorate(self.http.request(Method::POST, url))
             .bearer_auth(jwt)
-            .json(&json!({"permissions": {"issues": "write", "metadata": "read"}}))
+            .json(&json!({"permissions": scope.permissions()}))
             .send()
             .await
             .map_err(transport_error)?;
         let status = response.status();
         if status == reqwest::StatusCode::NOT_FOUND {
             return Err(StoreError::InstallationGone);
+        }
+        // GitHub's answer when the installation has not approved a permission.
+        if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY {
+            return Err(StoreError::PermissionNotGranted);
         }
         if !status.is_success() {
             return Err(StoreError::Rejected {
@@ -148,6 +181,7 @@ fn clone_error(error: &StoreError) -> StoreError {
         StoreError::NotFound(id) => StoreError::NotFound(*id),
         StoreError::InstallationGone => StoreError::InstallationGone,
         StoreError::Repository(problem) => StoreError::Repository(problem.clone()),
+        StoreError::PermissionNotGranted => StoreError::PermissionNotGranted,
         StoreError::RateLimited => StoreError::RateLimited,
         StoreError::Rejected { status, message } => StoreError::Rejected {
             status: *status,
@@ -199,6 +233,7 @@ mod tests {
             full_name: "alice/todos".into(),
             private,
             html_url: "https://github.test/alice/todos".into(),
+            default_branch: "main".into(),
             owner: RepositoryOwnerRow {
                 login: "alice".into(),
             },

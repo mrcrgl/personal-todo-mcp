@@ -58,8 +58,32 @@ impl GitHubApi {
         decode(response).await
     }
 
+    pub async fn put<T: DeserializeOwned>(
+        &self,
+        token: &str,
+        segments: &[&str],
+        body: &Value,
+    ) -> Result<T, StoreError> {
+        let response = self
+            .send(Method::PUT, token, segments, &[], Some(body))
+            .await?;
+        decode(response).await
+    }
+
     pub async fn delete(&self, token: &str, segments: &[&str]) -> Result<(), StoreError> {
         self.send(Method::DELETE, token, segments, &[], None)
+            .await
+            .map(drop)
+    }
+
+    /// For deletions GitHub needs details for, such as a file's `sha`.
+    pub async fn delete_with_body(
+        &self,
+        token: &str,
+        segments: &[&str],
+        body: &Value,
+    ) -> Result<(), StoreError> {
+        self.send(Method::DELETE, token, segments, &[], Some(body))
             .await
             .map(drop)
     }

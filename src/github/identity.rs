@@ -7,7 +7,7 @@ use url::Url;
 
 use crate::domain::tenant::Tenant;
 use crate::github::api::GitHubApi;
-use crate::github::installation::InstallationAccessProvider;
+use crate::github::installation::{InstallationAccessProvider, Scope};
 use crate::github::models::{OAuthTokenRow, UserInstallationRow, UserInstallationsRow, UserRow};
 use crate::oauth::identity::{
     BoxFut, GrantedTokens, IdentityError, IdentityProvider, IdentityUser,
@@ -183,9 +183,11 @@ impl IdentityProvider for GitHubIdentity {
     }
 
     fn check_repository<'a>(&'a self, tenant: &'a Tenant) -> BoxFut<'a, ()> {
+        // Checked with the todo scope: signing in must not depend on a
+        // permission only the file tools need.
         Box::pin(async move {
             self.installations
-                .access(tenant.installation_id)
+                .access(tenant.installation_id, Scope::Issues)
                 .await
                 .map(drop)
                 .map_err(|error| match error {

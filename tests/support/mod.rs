@@ -188,6 +188,7 @@ impl Harness {
                     "full_name": format!("{}/todos", user.login),
                     "private": private,
                     "html_url": format!("https://github.test/{}/todos", user.login),
+                    "default_branch": "main",
                     "owner": {"login": user.login},
                 }],
             })))
