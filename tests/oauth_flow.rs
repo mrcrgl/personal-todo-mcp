@@ -248,6 +248,18 @@ async fn consent_is_shown_before_anything_reaches_github() {
 }
 
 #[tokio::test]
+async fn pages_link_the_operators_legal_notice_and_privacy_policy() {
+    let h = Harness::start().await;
+    let client_id = h.register().await;
+
+    for url in [h.url("/"), h.authorize_url(&client_id)] {
+        let html = h.http.get(url).send().await.unwrap().text().await.unwrap();
+        assert!(html.contains(&format!("href=\"{LEGAL_NOTICE_URL}\"")));
+        assert!(html.contains(&format!("href=\"{PRIVACY_POLICY_URL}\"")));
+    }
+}
+
+#[tokio::test]
 async fn a_consent_link_from_another_browser_does_not_work() {
     let h = Harness::start().await;
     let client_id = h.register().await;

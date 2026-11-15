@@ -8,3 +8,6 @@ githubApp:
 ingress:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    # The default log format records query strings, which carry authorization
+    # codes and sealed state during sign-in. The app logs every request itself.
+    nginx.ingress.kubernetes.io/enable-access-log: "false"

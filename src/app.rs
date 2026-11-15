@@ -3,9 +3,8 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum::extract::{Request, State};
-use axum::http::{StatusCode, header};
-use axum::response::{IntoResponse, Response};
+use axum::extract::Request;
+use axum::http::StatusCode;
 use axum::{Router, middleware, routing::get};
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
@@ -22,9 +21,10 @@ use crate::github::installation::InstallationAccessProvider;
 use crate::github::store::GitHubTodoStore;
 use crate::github::table_store::GitHubTableStore;
 use crate::mcp::server::TodoMcp;
+use crate::oauth::pages::Pages;
 use crate::oauth::seal::Sealer;
 use crate::oauth::service::OAuthService;
-use crate::oauth::{bearer, pages, routes};
+use crate::oauth::{bearer, routes};
 use crate::tables::service::TableService;
 use crate::todos::service::TodoService;
 
@@ -84,6 +84,11 @@ pub fn router(cfg: &Config, services: Services, shutdown: CancellationToken) -> 
         files,
         tables,
     } = services;
+    let pages = Arc::new(Pages::new(
+        cfg.legal_notice_url.as_deref(),
+        cfg.privacy_policy_url.as_deref(),
+    ));
+    let landing = pages.landing(&oauth.resource());
 
     // No sessions: the token is checked on every request, and any replica can
     // serve any request.
@@ -112,9 +117,12 @@ pub fn router(cfg: &Config, services: Services, shutdown: CancellationToken) -> 
         .layer(routes::cors());
 
     Router::new()
-        .route("/", get(landing).with_state(oauth.clone()))
+        .route(
+            "/",
+            get(move || async move { routes::html(StatusCode::OK, landing) }),
+        )
         .route("/healthz", get(|| async { "ok\n" }))
-        .merge(routes::router(oauth))
+        .merge(routes::router(oauth, pages))
         .merge(mcp)
         .layer(
             // Logs the path only: the query of the flow's URLs carries codes
@@ -128,15 +136,6 @@ pub fn router(cfg: &Config, services: Services, shutdown: CancellationToken) -> 
                 )
             }),
         )
-}
-
-async fn landing(State(oauth): State<Arc<OAuthService>>) -> Response {
-    (
-        StatusCode::OK,
-        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-        pages::landing(&oauth.resource()),
-    )
-        .into_response()
 }
 
 fn unix_now() -> u64 {
